@@ -1,0 +1,25 @@
+# Compiled class files
+target/
+
+# IDE files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# Maven
+*.jar
+*.war
+*.ear
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test reports (regenerated on each run)
+reports/
+screenshots/
+
+# Config with credentials
+src/test/resources/config.properties

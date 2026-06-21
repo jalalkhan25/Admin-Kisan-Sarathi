@@ -9,8 +9,9 @@ import org.testng.annotations.Test;
 /** UserManagementTest - User page, search, filter, create expert, verify, view, disable */
 public class UserManagementTest extends BaseTest {
 
-    private String expertPhone() { return "600777777" + suffix; }
-    private String expertEmail() { return "jak" + suffix + "@expert123.com"; }
+    private static final String EXPERT_NAME = "Jalal Khan Expert";
+    private static final String EXPERT_PHONE = "70" + String.valueOf(System.currentTimeMillis()).substring(5, 13);
+    private static final String EXPERT_EMAIL = "jalal" + System.currentTimeMillis() % 100000 + "@expert.com";
 
     @Test(priority = 1)
     public void verifyUserManagementPageOpens() throws InterruptedException {
@@ -20,15 +21,21 @@ public class UserManagementTest extends BaseTest {
         System.out.println("[PASS] User Management page opens");
     }
 
-    @Test(priority = 2)
+    @Test(priority = 5, dependsOnMethods = {"createExpertUser"})
     public void verifyUserSearchFunctionality() throws InterruptedException {
         driver.get(BASE_URL + "/user-management");
         Thread.sleep(2000);
         WebElement search = assertVisible(By.cssSelector("input[placeholder='Search by Username, Mobile...']"), "User search input");
         search.clear();
-        search.sendKeys("test");
-        Thread.sleep(2000);
-        System.out.println("[PASS] User search works");
+        search.sendKeys(EXPERT_NAME);
+        search.sendKeys(Keys.ENTER);
+        Thread.sleep(3000);
+        By row = By.cssSelector("table tbody tr");
+        Assert.assertTrue(isVisible(row), "No rows found when searching for registered user: " + EXPERT_NAME);
+        String rowText = driver.findElement(row).getText().toLowerCase();
+        Assert.assertTrue(rowText.contains(EXPERT_NAME.toLowerCase()),
+                "Search results should contain '" + EXPERT_NAME + "'. Got: " + rowText);
+        System.out.println("[PASS] User search works - found registered user: " + EXPERT_NAME);
     }
 
     @Test(priority = 3)
@@ -71,9 +78,9 @@ public class UserManagementTest extends BaseTest {
         kvk.selectByIndex(1);
         Thread.sleep(1000);
 
-        assertFillInput("input[placeholder='Enter Name']", "expert jak", "Name");
-        assertFillInput("input[placeholder='Enter Mobile Number']", expertPhone(), "Mobile");
-        assertFillInput("input[placeholder='Enter Email']", expertEmail(), "Email");
+        assertFillInput("input[placeholder='Enter Name']", EXPERT_NAME, "Name");
+        assertFillInput("input[placeholder='Enter Mobile Number']", EXPERT_PHONE, "Mobile");
+        assertFillInput("input[placeholder='Enter Email']", EXPERT_EMAIL, "Email");
 
         scrollDown();
         Thread.sleep(1000);
@@ -84,34 +91,35 @@ public class UserManagementTest extends BaseTest {
         String url = driver.getCurrentUrl();
         Assert.assertTrue(url.contains("/user-management") && !url.contains("/registration"),
                 "Should redirect to user-management. URL: " + url);
-        System.out.println("[PASS] Expert created: " + expertPhone());
+        System.out.println("[PASS] Expert created: " + EXPERT_NAME + " | Phone: " + EXPERT_PHONE);
     }
 
-    @Test(priority = 5)
+    @Test(priority = 6, dependsOnMethods = {"createExpertUser"})
     public void verifyCreatedExpertInList() throws InterruptedException {
         driver.get(BASE_URL + "/user-management");
         Thread.sleep(2000);
         WebElement search = assertVisible(By.cssSelector("input[placeholder='Search by Username, Mobile...']"), "Search input");
         search.clear();
-        search.sendKeys(expertPhone());
+        search.sendKeys(EXPERT_NAME);
         search.sendKeys(Keys.ENTER);
         Thread.sleep(3000);
 
         By row = By.cssSelector("table tbody tr");
-        Assert.assertTrue(isVisible(row), "No rows found for " + expertPhone());
+        Assert.assertTrue(isVisible(row), "No rows found for " + EXPERT_NAME);
         String rowText = driver.findElement(row).getText();
         Assert.assertFalse(rowText.contains("No users found"), "User NOT found");
-        Assert.assertTrue(rowText.contains(expertPhone().substring(6)), "Phone not in results. Row: " + rowText);
-        System.out.println("[PASS] Expert verified in list");
+        Assert.assertTrue(rowText.toLowerCase().contains(EXPERT_NAME.toLowerCase()),
+                "Name not in results. Row: " + rowText);
+        System.out.println("[PASS] Expert verified in list: " + EXPERT_NAME);
     }
 
-    @Test(priority = 6)
+    @Test(priority = 7, dependsOnMethods = {"createExpertUser"})
     public void viewExpertDetails() throws InterruptedException {
         driver.get(BASE_URL + "/user-management");
         Thread.sleep(2000);
         WebElement search = driver.findElement(By.cssSelector("input[placeholder='Search by Username, Mobile...']"));
         search.clear();
-        search.sendKeys(expertPhone());
+        search.sendKeys(EXPERT_NAME);
         search.sendKeys(Keys.ENTER);
         Thread.sleep(3000);
 
@@ -122,13 +130,13 @@ public class UserManagementTest extends BaseTest {
         System.out.println("[PASS] Viewed details: " + driver.getCurrentUrl());
     }
 
-    @Test(priority = 7)
+    @Test(priority = 8, dependsOnMethods = {"createExpertUser"})
     public void disableExpertUser() throws InterruptedException {
         driver.get(BASE_URL + "/user-management");
         Thread.sleep(2000);
         WebElement search = driver.findElement(By.cssSelector("input[placeholder='Search by Username, Mobile...']"));
         search.clear();
-        search.sendKeys(expertPhone());
+        search.sendKeys(EXPERT_NAME);
         search.sendKeys(Keys.ENTER);
         Thread.sleep(3000);
 

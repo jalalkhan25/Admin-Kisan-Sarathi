@@ -7,6 +7,8 @@ import org.openqa.selenium.WebDriver;
 import org.testng.ITestContext;
 import org.testng.ITestListener;
 import org.testng.ITestResult;
+import base.BaseTest;
+import utils.EmailUtil;
 import utils.ExtentReportManager;
 import utils.ScreenshotUtils;
 
@@ -14,14 +16,16 @@ import java.lang.reflect.Field;
 
 /**
  * TestListener - Takes screenshot on FAILURE and SKIP.
- * Logs results to Extent Report.
+ * Logs results to Extent Report and EmailUtil.
  */
 public class TestListener implements ITestListener {
 
     private static ThreadLocal<ExtentTest> extentTest = new ThreadLocal<>();
+    private String currentSuite = "";
 
     @Override
     public void onStart(ITestContext context) {
+        currentSuite = context.getName();
         System.out.println("========================================");
         System.out.println("Test Suite Started: " + context.getName());
         System.out.println("========================================");
@@ -37,6 +41,9 @@ public class TestListener implements ITestListener {
     @Override
     public void onTestSuccess(ITestResult result) {
         extentTest.get().log(Status.PASS, "PASSED: " + result.getMethod().getMethodName());
+        BaseTest.totalTests++;
+        BaseTest.passedTests++;
+        EmailUtil.addResult(result.getMethod().getMethodName(), currentSuite, "PASS", null, null);
         System.out.println("PASSED: " + result.getMethod().getMethodName());
     }
 
@@ -44,7 +51,11 @@ public class TestListener implements ITestListener {
     public void onTestFailure(ITestResult result) {
         extentTest.get().log(Status.FAIL, "FAILED: " + result.getMethod().getMethodName());
         extentTest.get().log(Status.FAIL, "Reason: " + result.getThrowable().getMessage());
-        captureScreenshot(result, "FAIL");
+        BaseTest.totalTests++;
+        BaseTest.failedTests++;
+        String ssPath = captureScreenshot(result, "FAIL");
+        String reason = result.getThrowable() != null ? result.getThrowable().getMessage() : "Unknown";
+        EmailUtil.addResult(result.getMethod().getMethodName(), currentSuite, "FAIL", reason, ssPath);
         System.out.println("FAILED: " + result.getMethod().getMethodName());
     }
 
@@ -54,7 +65,11 @@ public class TestListener implements ITestListener {
         if (result.getThrowable() != null) {
             extentTest.get().log(Status.SKIP, "Reason: " + result.getThrowable().getMessage());
         }
-        captureScreenshot(result, "SKIP");
+        BaseTest.totalTests++;
+        BaseTest.skippedTests++;
+        String ssPath = captureScreenshot(result, "SKIP");
+        String reason = result.getThrowable() != null ? result.getThrowable().getMessage() : "Dependency failed / Setup error";
+        EmailUtil.addResult(result.getMethod().getMethodName(), currentSuite, "SKIP", reason, ssPath);
         System.out.println("SKIPPED: " + result.getMethod().getMethodName());
     }
 
@@ -70,7 +85,7 @@ public class TestListener implements ITestListener {
     /**
      * Capture screenshot and attach to report for FAIL/SKIP.
      */
-    private void captureScreenshot(ITestResult result, String status) {
+    private String captureScreenshot(ITestResult result, String status) {
         try {
             WebDriver driver = getDriverFromResult(result);
             if (driver != null) {
@@ -82,24 +97,24 @@ public class TestListener implements ITestListener {
                     extentTest.get().skip("Screenshot:",
                             MediaEntityBuilder.createScreenCaptureFromPath(path).build());
                 }
+                return path;
             }
         } catch (Exception e) {
             System.out.println("Could not capture screenshot: " + e.getMessage());
         }
+        return null;
     }
 
     /**
-     * Get WebDriver from the test instance - checks both BaseTest (parent) and direct field.
+     * Get WebDriver from the test instance.
      */
     private WebDriver getDriverFromResult(ITestResult result) {
         try {
             Object instance = result.getInstance();
-            // Try direct field first (AllModulesTest has its own 'driver')
             Field driverField = null;
             try {
                 driverField = instance.getClass().getDeclaredField("driver");
             } catch (NoSuchFieldException e) {
-                // Try parent class (BaseTest pattern)
                 driverField = instance.getClass().getSuperclass().getDeclaredField("driver");
             }
             driverField.setAccessible(true);

@@ -33,6 +33,12 @@ public class BaseTest {
     protected static String BASE_URL;
     protected static int suffix;
 
+    // Test counters for email report
+    public static int totalTests = 0;
+    public static int passedTests = 0;
+    public static int failedTests = 0;
+    public static int skippedTests = 0;
+
     @BeforeSuite
     public void suiteSetup() throws InterruptedException {
         BASE_URL = ConfigReader.getProperty("baseUrl");
@@ -70,8 +76,25 @@ public class BaseTest {
         System.out.println(">> LOGIN DONE. URL: " + driver.getCurrentUrl());
     }
 
-    @AfterSuite
+    @AfterSuite(alwaysRun = true)
     public void suiteTeardown() {
+        // If all tests skipped due to setup failure, count as failure
+        if (totalTests == 0 && skippedTests == 0) {
+            // BeforeSuite failed - nothing ran
+            totalTests = 25;
+            failedTests = 1;
+            skippedTests = 24;
+        }
+
+        // Send email report
+        try {
+            utils.EmailUtil.sendReport(
+                    totalTests, passedTests, failedTests, skippedTests
+            );
+        } catch (Exception e) {
+            System.out.println(">> Email send error: " + e.getMessage());
+        }
+
         if (driver != null) {
             driver.quit();
             System.out.println(">> BROWSER CLOSED.");

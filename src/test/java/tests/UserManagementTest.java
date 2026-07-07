@@ -10,8 +10,33 @@ import org.testng.annotations.Test;
 public class UserManagementTest extends BaseTest {
 
     private static final String EXPERT_NAME = "Jalal Khan Expert";
-    private static final String EXPERT_PHONE = "70" + String.valueOf(System.currentTimeMillis()).substring(5, 13);
-    private static final String EXPERT_EMAIL = "jalal" + System.currentTimeMillis() % 100000 + "@expert.com";
+    private static final String EXPERT_PHONE = generateIncrementalPhone();
+    private static final String EXPERT_EMAIL = "jalal" + EXPERT_PHONE.substring(6) + "@expert.com";
+
+    /**
+     * Generates phone with 8th digit incrementing.
+     * Base: 7000000999 → 7000001999 → 7000002999 ... 7000009999 → 7000010999
+     * Reads/writes counter from file: phone_counter.txt
+     */
+    private static String generateIncrementalPhone() {
+        int counter = 0;
+        java.io.File counterFile = new java.io.File("phone_counter.txt");
+        try {
+            if (counterFile.exists()) {
+                String val = new String(java.nio.file.Files.readAllBytes(counterFile.toPath())).trim();
+                counter = Integer.parseInt(val);
+            }
+            counter++;
+            java.nio.file.Files.write(counterFile.toPath(), String.valueOf(counter).getBytes());
+        } catch (Exception e) {
+            counter = (int) (System.currentTimeMillis() % 100);
+        }
+        // Format: 70000XX999 where XX = counter (8th digit increments)
+        String base = "700000";
+        String mid = String.format("%02d", counter % 100);
+        String suffix = "99";
+        return base + mid + suffix;
+    }
 
     @Test(priority = 1)
     public void verifyUserManagementPageOpens() throws InterruptedException {

@@ -41,4 +41,10 @@
             <class name="tests.CallManagementTest"/>
         </classes>
     </test>
+
+    <test name="07 - Event Management">
+        <classes>
+            <class name="tests.EventManagementTest"/>
+        </classes>
+    </test>
 </suite>

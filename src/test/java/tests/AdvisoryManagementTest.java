@@ -40,56 +40,36 @@ public class AdvisoryManagementTest extends BaseTest {
         ((JavascriptExecutor) driver).executeScript("window.scrollTo(0, document.body.scrollHeight)");
         Thread.sleep(2000);
 
-        // 3. Domain - Agriculture (may be pre-selected for Admin role)
-        By domainValue = By.xpath("//*[contains(text(),'Agriculture') and ancestor::div[preceding-sibling::h4[contains(text(),'Domain')]]]");
-        By domainH4 = By.xpath("//h4[contains(text(),'Domain')]");
-
-        if (isVisible(domainValue)) {
-            System.out.println("  Domain already pre-selected: Agriculture");
-        } else if (isVisible(domainH4)) {
-            clickAdvisoryDropdown("Domain", "Agriculture");
-        } else {
-            // Domain h4 not found - take screenshot for debugging and print page source snippet
-            System.out.println("  WARNING: Domain h4 not found. Current URL: " + driver.getCurrentUrl());
-            System.out.println("  Page title: " + driver.getTitle());
-            // Try waiting more
-            Thread.sleep(5000);
-            scrollDown();
-            Thread.sleep(1000);
-            if (isVisible(domainH4)) {
-                clickAdvisoryDropdown("Domain", "Agriculture");
-            } else {
-                Assert.fail("Domain dropdown not found on create-advisory page after waiting. URL: " + driver.getCurrentUrl());
-            }
-        }
-        Thread.sleep(2000);
-
-        // 4. Sub Domain - Cereals
-        scrollDown();
+        // 3-6. Define Advisory Details - native <select> dropdowns.
+        //      These cascade: selecting Domain reloads Sub Domain, etc.
+        selectAdvisoryDropdown("Domain", "Agriculture");
         Thread.sleep(2000); // wait for sub-domain list to load after domain selection
-        clickAdvisoryDropdown("Sub Domain", "Cereal");
-        Thread.sleep(2000);
 
-        // 5. Commodity - Adley millet
         scrollDown();
+        selectAdvisoryDropdown("Sub Domain", "Cereal");
         Thread.sleep(2000); // wait for commodity list
-        clickAdvisoryDropdown("Commodity", "Adley");
-        Thread.sleep(2000);
 
-        // 6. Problem Type - Field preparation
         scrollDown();
+        selectAdvisoryDropdown("Commodity", "Adley");
         Thread.sleep(2000); // wait for problem types
-        clickAdvisoryDropdown("Problem Type", "Field");
+
+        scrollDown();
+        selectAdvisoryDropdown("Problem Type", "Field");
         Thread.sleep(2000);
 
-        // 7. Click NEXT button at bottom
+        // 7. Close any open dropdown, then click NEXT button at bottom
+        closeAnyOpenAdvisoryDropdown();
         scrollDown();
         Thread.sleep(500);
         By nextBtn = By.xpath("//button[.//span[contains(text(),'Next')] or contains(text(),'Next')]");
         WebElement next = assertVisible(nextBtn, "Next button");
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", next);
         Thread.sleep(300);
-        next.click();
+        try {
+            next.click();
+        } catch (RuntimeException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", next);
+        }
         Thread.sleep(3000);
         System.out.println("  Next clicked - moved to compose page");
 
@@ -145,48 +125,102 @@ public class AdvisoryManagementTest extends BaseTest {
     }
 
     /**
-     * Helper: Click CustomSelect dropdown on advisory page.
-     * CustomSelect renders as: <h4>Label</h4> then a <div> with a clickable button-like area.
-     * Options appear as <ul><li><div><span>Text</span></div></li></ul>
+     * Select a value in a "Define Advisory Details" dropdown.
+     *
+     * These are custom (non-native) dropdowns from the app's shared
+     * CustomSelect component, rendered as:
+     *   <div><h4>{title}{*}</h4>
+     *        <button> ...trigger... </button>
+     *        {isOpen && <div>[<input placeholder="Search..."/>]<ul><li>option</li>...</ul></div>}
+     *   </div>
+     * Domain is NOT searchable; Sub Domain / Commodity / Problem Type render a
+     * "Search..." box and load their options on open. Matching is a
+     * case-insensitive contains, so "Cereal" matches "Cereals" and "Adley"
+     * matches "Adley Millet". The panel is always closed afterward so its
+     * option list cannot overlay the footer's Next button.
      */
-    private void clickAdvisoryDropdown(String label, String optionText) throws InterruptedException {
-        // CustomSelect: h4 label + a sibling div that is the clickable dropdown
-        // Try multiple approaches to find the clickable area
-        By dropdownTrigger = By.xpath("//h4[contains(text(),'" + label + "')]/following-sibling::div[1]");
+    private void selectAdvisoryDropdown(String label, String optionText) throws InterruptedException {
+        scrollDown();
+        Thread.sleep(500);
 
-        if (!isVisible(dropdownTrigger)) {
-            // Try: parent of h4, then find the clickable div inside
-            dropdownTrigger = By.xpath("//h4[contains(text(),'" + label + "')]/parent::div//div[contains(@class,'cursor') or contains(@class,'border')]");
-        }
-        if (!isVisible(dropdownTrigger)) {
-            // Try: any element after h4 that looks clickable
-            dropdownTrigger = By.xpath("//h4[contains(text(),'" + label + "')]/following::div[contains(@class,'rounded') or contains(@class,'border')][1]");
-        }
-        if (!isVisible(dropdownTrigger)) {
-            // Last resort: just click the h4 itself (sometimes the whole area is clickable)
-            dropdownTrigger = By.xpath("//h4[contains(text(),'" + label + "')]");
-        }
-
-        Assert.assertTrue(isVisible(dropdownTrigger), "Dropdown trigger for '" + label + "' not found");
-
-        WebElement el = driver.findElement(dropdownTrigger);
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el);
-        Thread.sleep(300);
-        el.click();
+        Assert.assertTrue(openAdvisoryDropdown(label), "Dropdown trigger for '" + label + "' not found");
+        // Commodity / Problem Type fetch their options on open.
         Thread.sleep(1500);
 
-        // Options are <li> elements with text inside <span>
-        By option = By.xpath("//span[normalize-space()='" + optionText + "']/ancestor::li");
-        if (!isVisible(option)) {
-            // Try partial match
-            option = By.xpath("//li[.//span[contains(text(),'" + optionText + "')]]");
+        // Searchable dropdowns expose a "Search..." input - filter to the option.
+        By searchBox = By.cssSelector("input[placeholder='Search...']");
+        if (isVisible(searchBox)) {
+            WebElement search = driver.findElement(searchBox);
+            search.clear();
+            search.sendKeys(optionText);
+            Thread.sleep(1200);
         }
-        if (!isVisible(option)) {
-            option = By.xpath("//li[contains(.,'" + optionText + "')]");
-        }
+
+        By option = By.xpath("//ul//li[.//span[contains(normalize-space(.),\"" + optionText + "\")]] "
+                + "| //ul//li[contains(normalize-space(.),\"" + optionText + "\")]");
         Assert.assertTrue(isVisible(option), "Option '" + optionText + "' not found in " + label);
-        driver.findElement(option).click();
-        Thread.sleep(500);
+        WebElement opt = driver.findElement(option);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", opt);
+        try {
+            opt.click();
+        } catch (RuntimeException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", opt);
+        }
+        Thread.sleep(800);
         System.out.println("  Selected " + label + ": " + optionText);
+
+        closeAnyOpenAdvisoryDropdown();
+    }
+
+    /**
+     * Open a CustomSelect by clicking the <button> trigger that immediately
+     * follows the <h4> whose text starts with the given title.
+     */
+    private boolean openAdvisoryDropdown(String title) throws InterruptedException {
+        By trigger = By.xpath("//h4[starts-with(normalize-space(.),'" + title + "')]/following-sibling::button[1]");
+        if (!isVisible(trigger)) {
+            trigger = By.xpath("//button[.//p[starts-with(normalize-space(.),'" + title + "')]]");
+            if (!isVisible(trigger)) {
+                return false;
+            }
+        }
+        WebElement el = driver.findElement(trigger);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el);
+        Thread.sleep(300);
+        try {
+            el.click();
+        } catch (RuntimeException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+        }
+        Thread.sleep(800);
+        return true;
+    }
+
+    /**
+     * If a CustomSelect panel is still open (its "Search..." box or a clickable
+     * option list is visible), click a neutral heading (or the body) to fire
+     * the component's outside-click handler and close it. This prevents the
+     * option list from overlaying and intercepting the footer Next button.
+     */
+    private void closeAnyOpenAdvisoryDropdown() throws InterruptedException {
+        By searchBox = By.cssSelector("input[placeholder='Search...']");
+        boolean open = !driver.findElements(searchBox).isEmpty()
+                || !driver.findElements(By.xpath("//ul//li[contains(@class,'cursor-pointer') "
+                        + "or contains(@class,'hover:bg-gray-100')]")).isEmpty();
+        if (!open) {
+            return;
+        }
+        By neutral = By.xpath("//h2[contains(normalize-space(.),'Define Advisory Details')] "
+                + "| //h2[contains(normalize-space(.),'Select Farmer')]");
+        try {
+            if (isVisible(neutral)) {
+                driver.findElement(neutral).click();
+            } else {
+                ((JavascriptExecutor) driver).executeScript("document.body.click();");
+            }
+        } catch (RuntimeException e) {
+            ((JavascriptExecutor) driver).executeScript("document.body.click();");
+        }
+        Thread.sleep(500);
     }
 }

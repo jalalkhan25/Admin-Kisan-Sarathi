@@ -28,12 +28,27 @@ public class EmailUtil {
             return;
         }
 
+        // Only share the report when more than 30 test cases have passed.
+        if (passed <= 30) {
+            System.out.println(">> Only " + passed + " test(s) passed (need > 30). Email NOT sent.");
+            return;
+        }
+
         String host = ConfigReader.getProperty("email.smtp.host");
         String port = ConfigReader.getProperty("email.smtp.port");
         String sender = ConfigReader.getProperty("email.sender");
         String password = ConfigReader.getProperty("email.password");
         String recipient = ConfigReader.getProperty("email.recipient");
         String cc = ConfigReader.getProperty("email.cc");
+
+        String environment = ConfigReader.getProperty("email.environment");
+        if (environment == null || environment.isEmpty()) {
+            environment = "Dev";
+        }
+        String qaName = ConfigReader.getProperty("email.qa");
+        if (qaName == null || qaName.isEmpty()) {
+            qaName = "Jalal Khan";
+        }
 
         String overallStatus = (failed > 0) ? "FAILED" : (skipped == totalTests) ? "SKIPPED (Service Down)" : "PASSED";
         String statusColor = (failed > 0) ? "#e74c3c" : (skipped == totalTests) ? "#f39c12" : "#27ae60";
@@ -89,9 +104,9 @@ public class EmailUtil {
         // Info bar
         body.append("<table style='width:100%;background:#f8f9fa;border-bottom:1px solid #e9ecef;'><tr>");
         body.append("<td style='padding:15px 30px;border:none;'><span style='font-size:11px;color:#6c757d;'>PROJECT</span><br><strong>Kisan Sarathi 2.0</strong></td>");
-        body.append("<td style='padding:15px 30px;border:none;'><span style='font-size:11px;color:#6c757d;'>QA ENGINEER</span><br><strong>Jalal Khan</strong></td>");
+        body.append("<td style='padding:15px 30px;border:none;'><span style='font-size:11px;color:#6c757d;'>QA ENGINEER</span><br><strong>").append(qaName).append("</strong></td>");
         body.append("<td style='padding:15px 30px;border:none;'><span style='font-size:11px;color:#6c757d;'>EXECUTION DATE</span><br><strong>").append(timestamp).append("</strong></td>");
-        body.append("<td style='padding:15px 30px;border:none;'><span style='font-size:11px;color:#6c757d;'>ENVIRONMENT</span><br><strong>Dev</strong></td>");
+        body.append("<td style='padding:15px 30px;border:none;'><span style='font-size:11px;color:#6c757d;'>ENVIRONMENT</span><br><strong>").append(environment).append("</strong></td>");
         body.append("</tr></table>");
 
         // Stats cards
@@ -126,7 +141,7 @@ public class EmailUtil {
 
         // Footer
         body.append("<div class='footer'>");
-        body.append("📧 Automated Report | Kisan Sarathi 2.0 Admin Panel Automation Framework | QA: Jalal Khan");
+        body.append("📧 Automated Report | Kisan Sarathi 2.0 Admin Panel Automation Framework | QA: ").append(qaName);
         body.append("</div>");
 
         body.append("</div></body></html>");
